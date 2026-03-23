@@ -1,5 +1,6 @@
 """CLI entry point for claude-sharing."""
 
+import json
 import logging
 import sys
 from pathlib import Path
@@ -74,7 +75,7 @@ def cmd_config(ctx, repo, branch, interval, name, email):
         cfg_mod.save(cfg)
         click.echo("Configuration saved.")
     else:
-        import json, dataclasses
+        import dataclasses
         click.echo(json.dumps(dataclasses.asdict(cfg), indent=2))
 
 
@@ -210,3 +211,115 @@ def cmd_push(ctx, project_dir):
         click.echo("Pushed." if ok else "Committed locally but push failed.")
     else:
         click.echo("No changes to push.")
+
+
+# ---------------------------------------------------------------------------
+# install-hooks  (wire Claude Code web session hooks)
+# ---------------------------------------------------------------------------
+
+@main.command("install-hooks")
+@click.argument("project_dir", default=".", type=click.Path(exists=True))
+@click.option("--remove", is_flag=True, default=False, help="Remove claude-sharing hooks instead of adding them.")
+def cmd_install_hooks(project_dir, remove):
+    """
+    Install Claude Code session hooks in PROJECT_DIR so CLAUDE.md syncs
+    automatically during web sessions.
+
+    \b
+    On SessionStart  → pulls the latest shared CLAUDE.md into this project
+    On Stop          → pushes this project's CLAUDE.md to the shared repo
+
+    This lets team members pick up each other's context automatically when
+    they open a new Claude Code web session.
+    """
+    cfg = cfg_mod.load()
+    cfg_mod.require(cfg)
+
+    p = Path(project_dir).resolve()
+    settings_path = p / ".claude" / "settings.json"
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Load existing settings (if any)
+    if settings_path.exists():
+        with open(settings_path) as f:
+            try:
+                settings = json.load(f)
+            except json.JSONDecodeError:
+                settings = {}
+    else:
+        settings = {}
+
+    hooks = settings.setdefault("hooks", {})
+
+    if remove:
+        _remove_sharing_hooks(hooks)
+        with open(settings_path, "w") as f:
+            json.dump(settings, f, indent=2)
+        click.echo(f"Removed claude-sharing hooks from {settings_path}")
+        return
+
+    # The commands we inject — use absolute path to avoid PATH issues in web env
+    pull_cmd = "claude-share pull"
+    push_cmd = f"claude-share push {p}"
+
+    _upsert_hook(hooks, "SessionStart", pull_cmd)
+    _upsert_hook(hooks, "Stop", push_cmd)
+
+    with open(settings_path, "w") as f:
+        json.dump(settings, f, indent=2)
+
+    click.echo(f"Hooks installed in {settings_path}")
+    click.echo("  SessionStart → claude-share pull  (fetch teammates' latest context)")
+    click.echo(f"  Stop         → claude-share push  (share your context when done)")
+
+    # Also register this directory as a watch dir so the daemon works too
+    p_str = str(p)
+    if p_str not in cfg.watch_dirs:
+        cfg.watch_dirs.append(p_str)
+        cfg_mod.save(cfg)
+        click.echo(f"Added {p} to watch list for daemon sync.")
+
+
+_HOOK_MARKER = "claude-sharing"
+
+
+def _make_hook_entry(command: str) -> dict:
+    return {"type": "command", "command": command}
+
+
+def _upsert_hook(hooks: dict, event: str, command: str) -> None:
+    """Add or update a claude-sharing hook entry for the given lifecycle event."""
+    event_hooks = hooks.setdefault(event, [])
+
+    # Find an existing claude-sharing block for this event
+    for block in event_hooks:
+        inner = block.get("hooks", [])
+        for entry in inner:
+            if _HOOK_MARKER in entry.get("command", ""):
+                # Update in place
+                entry["command"] = command
+                return
+
+    # No existing block — append a new one
+    event_hooks.append({
+        "matcher": "",
+        "hooks": [_make_hook_entry(command)],
+    })
+
+
+def _remove_sharing_hooks(hooks: dict) -> None:
+    """Strip all claude-sharing hook entries from the hooks dict."""
+    for event in list(hooks.keys()):
+        cleaned_blocks = []
+        for block in hooks[event]:
+            inner = [
+                e for e in block.get("hooks", [])
+                if _HOOK_MARKER not in e.get("command", "")
+            ]
+            if inner:
+                block["hooks"] = inner
+                cleaned_blocks.append(block)
+        if cleaned_blocks:
+            hooks[event] = cleaned_blocks
+        else:
+            del hooks[event]
