@@ -41,11 +41,9 @@ def pull(repo: Repo, cfg: cfg_mod.Config) -> list[str]:
     Returns list of CLAUDE.md files that were updated.
     """
     try:
-        before = {item.a_path for item in repo.index.diff(None)}
         repo.remotes.origin.fetch()
         remote_ref = f"origin/{cfg.branch}"
 
-        # Check if there are new commits
         local_commit = repo.head.commit.hexsha
         try:
             remote_commit = repo.commit(remote_ref).hexsha
@@ -55,11 +53,14 @@ def pull(repo: Repo, cfg: cfg_mod.Config) -> list[str]:
         if local_commit == remote_commit:
             return []
 
-        # Fast-forward or merge
-        repo.git.merge(remote_ref, "--ff-only")
+        # Prefer rebase so concurrent team pushes don't cause divergence
+        try:
+            repo.git.rebase(remote_ref)
+        except GitCommandError:
+            repo.git.rebase("--abort")
+            repo.git.merge(remote_ref, "--ff-only")
         log.info("Pulled updates from remote")
 
-        # Find which CLAUDE.md files changed
         changed = [
             item.a_path
             for item in repo.head.commit.diff(f"{local_commit}")
@@ -73,14 +74,30 @@ def pull(repo: Repo, cfg: cfg_mod.Config) -> list[str]:
 
 
 def push(repo: Repo, cfg: cfg_mod.Config) -> bool:
-    """Push local commits to remote. Returns True on success."""
-    try:
-        repo.remotes.origin.push(refspec=f"{cfg.branch}:{cfg.branch}")
-        log.info("Pushed to remote")
-        return True
-    except GitCommandError as e:
-        log.warning("Push failed: %s", e)
-        return False
+    """Push local commits to remote, auto-rebasing on rejection. Returns True on success."""
+    for attempt in range(3):
+        try:
+            repo.remotes.origin.push(refspec=f"{cfg.branch}:{cfg.branch}")
+            log.info("Pushed to remote")
+            return True
+        except GitCommandError as e:
+            if "rejected" in str(e).lower() or "non-fast-forward" in str(e).lower():
+                log.info("Push rejected, pulling and retrying (attempt %d/3)…", attempt + 1)
+                try:
+                    repo.remotes.origin.fetch()
+                    repo.git.rebase(f"origin/{cfg.branch}")
+                except GitCommandError:
+                    try:
+                        repo.git.rebase("--abort")
+                    except GitCommandError:
+                        pass
+                    log.warning("Rebase failed, giving up push")
+                    return False
+            else:
+                log.warning("Push failed: %s", e)
+                return False
+    log.warning("Push failed after 3 attempts")
+    return False
 
 
 def project_key(project_dir: Path) -> str:
