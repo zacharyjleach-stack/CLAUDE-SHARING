@@ -1,17 +1,45 @@
 #!/usr/bin/env bash
-# install.sh — install claude-sharing and set it up as a background service
+# install.sh — install claude-sharing and optionally run first-time setup
+#
+# Usage (remote, one-liner):
+#   curl -sSL https://raw.githubusercontent.com/zacharyjleach-stack/CLAUDE-SHARING/claude/shared-claude-workspace-PLU2e/install.sh | bash -s -- --repo git@github.com:your-org/shared-context.git
+#
+# Usage (local clone):
+#   bash install.sh --repo git@github.com:your-org/shared-context.git
+#
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_URL=""
+PROJECT_DIR="$(pwd)"
+
+# Parse args
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --repo) REPO_URL="$2"; shift 2 ;;
+        --dir)  PROJECT_DIR="$2"; shift 2 ;;
+        *) echo "Unknown argument: $1"; exit 1 ;;
+    esac
+done
+
+GITHUB="https://raw.githubusercontent.com/zacharyjleach-stack/CLAUDE-SHARING/claude/shared-claude-workspace-PLU2e"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-install.sh}")" 2>/dev/null && pwd || echo "")"
 SERVICE_NAME="claude-sharing"
 
+# ---- Install the package -------------------------------------------------------
 echo "==> Installing claude-sharing..."
-pip install --quiet "$SCRIPT_DIR"
+
+if [[ -f "$SCRIPT_DIR/pyproject.toml" ]]; then
+    # Running from a local clone
+    pip install --quiet "$SCRIPT_DIR"
+else
+    # Running via curl — install directly from GitHub
+    pip install --quiet "git+https://github.com/zacharyjleach-stack/CLAUDE-SHARING.git@claude/shared-claude-workspace-PLU2e"
+fi
 
 BINARY="$(command -v claude-share)"
-echo "    Installed at: $BINARY"
+echo "    Installed: $BINARY"
 
-# ---- macOS launchd -----------------------------------------------------------
+# ---- Register as a background service ------------------------------------------
 if [[ "$OSTYPE" == darwin* ]]; then
     PLIST_DIR="$HOME/Library/LaunchAgents"
     PLIST="$PLIST_DIR/${SERVICE_NAME}.plist"
@@ -44,12 +72,8 @@ EOF
 
     launchctl unload "$PLIST" 2>/dev/null || true
     launchctl load -w "$PLIST"
-    echo "==> Registered macOS LaunchAgent: $PLIST"
-    echo "    Logs: ~/.claude-sharing/daemon.log"
-    echo "    Stop:  launchctl unload $PLIST"
-    echo "    Start: launchctl load -w $PLIST"
+    echo "==> Background service registered (macOS LaunchAgent)"
 
-# ---- Linux systemd (user) ----------------------------------------------------
 elif command -v systemctl &>/dev/null; then
     UNIT_DIR="$HOME/.config/systemd/user"
     UNIT="$UNIT_DIR/${SERVICE_NAME}.service"
@@ -73,34 +97,41 @@ EOF
 
     systemctl --user daemon-reload
     systemctl --user enable --now "$SERVICE_NAME"
-    echo "==> Registered systemd user service: $UNIT"
-    echo "    Logs:   journalctl --user -u $SERVICE_NAME -f"
-    echo "             or ~/.claude-sharing/daemon.log"
-    echo "    Stop:   systemctl --user stop $SERVICE_NAME"
-    echo "    Start:  systemctl --user start $SERVICE_NAME"
-    echo "    Status: systemctl --user status $SERVICE_NAME"
+    echo "==> Background service registered (systemd)"
 
-# ---- Fallback: plain background process --------------------------------------
 else
     LOG="$HOME/.claude-sharing/daemon.log"
     mkdir -p "$(dirname "$LOG")"
     nohup "$BINARY" start >> "$LOG" 2>&1 &
     echo $! > "$HOME/.claude-sharing/daemon.pid"
-    echo "==> Started in background (PID $!)"
-    echo "    Logs: $LOG"
-    echo "    Stop: kill \$(cat ~/.claude-sharing/daemon.pid)"
+    echo "==> Background service started (PID $!)"
 fi
 
+# ---- First-time project setup --------------------------------------------------
+if [[ -n "$REPO_URL" ]]; then
+    echo ""
+    echo "==> Running first-time setup for $PROJECT_DIR ..."
+    claude-share setup --repo "$REPO_URL" --commit --dir "$PROJECT_DIR" 2>/dev/null || \
+    claude-share setup --repo "$REPO_URL" --dir "$PROJECT_DIR"
+fi
+
+# ---- Done ----------------------------------------------------------------------
 echo ""
-echo "Next steps:"
-echo "  1. Set the shared git repo (everyone uses the SAME URL):"
-echo "       claude-share config --repo git@github.com:yourteam/claude-context.git"
-echo ""
-echo "  2. Add your project directories:"
-echo "       claude-share watch --add ~/projects/my-api"
-echo "       claude-share watch --add ~/projects/my-frontend"
-echo ""
-echo "  3. Check status at any time:"
-echo "       claude-share status"
-echo ""
-echo "That's it. The daemon will keep CLAUDE.md files in sync automatically."
+if [[ -n "$REPO_URL" ]]; then
+    echo "All done! Claude Code web sessions in $PROJECT_DIR will now sync automatically."
+    echo ""
+    echo "Share this one-liner with your teammates:"
+    echo ""
+    echo "  curl -sSL ${GITHUB}/install.sh | bash -s -- --repo ${REPO_URL}"
+    echo ""
+else
+    echo "Installed. Now run setup in your project directory:"
+    echo ""
+    echo "  # New dedicated repo:"
+    echo "  claude-share setup --repo git@github.com:your-org/shared-context.git --commit"
+    echo ""
+    echo "  # Or your existing team repo (uses an orphan 'claude-context' branch):"
+    echo "  claude-share setup --repo git@github.com:your-org/your-existing-repo.git --commit"
+    echo ""
+fi
+echo "Logs: ~/.claude-sharing/daemon.log"

@@ -47,8 +47,9 @@ def main(ctx: click.Context, verbose: bool) -> None:
 @click.option("--repo", required=True, help="Shared git repo URL all team members push/pull from.")
 @click.option("--branch", default=None, help="Branch to use (default: main).")
 @click.option("--commit", is_flag=True, default=False, help="Git-commit the generated .claude/settings.json.")
+@click.option("--dir", "project_dir_opt", default=None, help="Project directory (alternative to positional arg).")
 @click.argument("project_dir", default=".", type=click.Path(exists=True))
-def cmd_setup(repo, branch, commit, project_dir):
+def cmd_setup(repo, branch, commit, project_dir_opt, project_dir):
     """
     One-liner team setup: configure the shared repo and install session hooks.
 
@@ -64,6 +65,10 @@ def cmd_setup(repo, branch, commit, project_dir):
       4. Optionally commit .claude/settings.json so teammates get the hooks automatically
     """
     import subprocess
+
+    # --dir flag overrides positional arg (used by install.sh)
+    if project_dir_opt:
+        project_dir = project_dir_opt
 
     # 1. Save config
     cfg = cfg_mod.load()

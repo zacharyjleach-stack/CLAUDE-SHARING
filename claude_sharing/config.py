@@ -25,8 +25,9 @@ class Config:
     # Git author name/email for commits
     author_name: str = ""
     author_email: str = ""
-    # Branch to use in shared repo
-    branch: str = "main"
+    # Branch to use in shared repo — defaults to an orphan branch so
+    # claude-sharing commits don't appear on the team's code branches
+    branch: str = "claude-context"
 
     def __post_init__(self):
         if not self.shared_repo_local:
