@@ -40,6 +40,98 @@ def main(ctx: click.Context, verbose: bool) -> None:
 
 
 # ---------------------------------------------------------------------------
+# setup  (one-liner: configure + install hooks + optional commit)
+# ---------------------------------------------------------------------------
+
+@main.command("setup")
+@click.option("--repo", required=True, help="Shared git repo URL all team members push/pull from.")
+@click.option("--branch", default=None, help="Branch to use (default: main).")
+@click.option("--commit", is_flag=True, default=False, help="Git-commit the generated .claude/settings.json.")
+@click.argument("project_dir", default=".", type=click.Path(exists=True))
+def cmd_setup(repo, branch, commit, project_dir):
+    """
+    One-liner team setup: configure the shared repo and install session hooks.
+
+    \b
+    Example (run once per team member, per project):
+
+        claude-share setup --repo git@github.com:org/shared-context.git --commit
+
+    This will:
+      1. Save the shared repo URL (and optional branch) to ~/.claude-sharing/config.json
+      2. Install SessionStart / Stop hooks into PROJECT_DIR/.claude/settings.json
+      3. Add PROJECT_DIR to the daemon watch list
+      4. Optionally commit .claude/settings.json so teammates get the hooks automatically
+    """
+    import subprocess
+
+    # 1. Save config
+    cfg = cfg_mod.load()
+    cfg.shared_repo_url = repo
+    if branch:
+        cfg.branch = branch
+    cfg_mod.save(cfg)
+    click.echo(f"Configured shared repo: {repo}")
+
+    # 2. Install hooks (reuse the logic already in cmd_install_hooks)
+    p = Path(project_dir).resolve()
+    settings_path = p / ".claude" / "settings.json"
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if settings_path.exists():
+        with open(settings_path) as f:
+            try:
+                settings = json.load(f)
+            except json.JSONDecodeError:
+                settings = {}
+    else:
+        settings = {}
+
+    hooks = settings.setdefault("hooks", {})
+    _upsert_hook(hooks, "SessionStart", "claude-share pull")
+    _upsert_hook(hooks, "Stop", f"claude-share push {p}")
+
+    with open(settings_path, "w") as f:
+        json.dump(settings, f, indent=2)
+
+    click.echo(f"Hooks installed in {settings_path}")
+    click.echo("  SessionStart → claude-share pull")
+    click.echo("  Stop         → claude-share push")
+
+    # 3. Register watch dir
+    p_str = str(p)
+    if p_str not in cfg.watch_dirs:
+        cfg.watch_dirs.append(p_str)
+        cfg_mod.save(cfg)
+        click.echo(f"Watching {p}")
+
+    # 4. Optional commit
+    if commit:
+        rel = str(settings_path.relative_to(p))
+        result = subprocess.run(
+            ["git", "add", rel],
+            cwd=str(p),
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            click.echo(f"git add failed: {result.stderr.strip()}", err=True)
+        else:
+            result = subprocess.run(
+                ["git", "commit", "-m", "chore: add claude-sharing session hooks"],
+                cwd=str(p),
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                click.echo("Committed .claude/settings.json")
+            else:
+                click.echo(f"git commit failed: {result.stderr.strip()}", err=True)
+
+    click.echo("\nDone! Team members can now run the same command to join.")
+
+
+# ---------------------------------------------------------------------------
 # config
 # ---------------------------------------------------------------------------
 
