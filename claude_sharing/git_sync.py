@@ -19,20 +19,47 @@ def _actor(cfg: cfg_mod.Config) -> git.Actor:
 
 
 def clone_or_open(cfg: cfg_mod.Config) -> Repo:
-    """Return the local shared repo, cloning it if it doesn't exist yet."""
+    """
+    Return the local shared repo, cloning it if it doesn't exist yet.
+    If the target branch doesn't exist on the remote, creates it so that
+    an existing team repo can be used without polluting its default branch.
+    """
     local = Path(cfg.shared_repo_local)
     if local.exists() and (local / ".git").exists():
         repo = Repo(local)
-        # Ensure remote URL matches config
         if "origin" in [r.name for r in repo.remotes]:
             if repo.remotes.origin.url != cfg.shared_repo_url:
                 repo.remotes.origin.set_url(cfg.shared_repo_url)
+        _ensure_branch(repo, cfg)
         return repo
 
     log.info("Cloning shared repo %s → %s", cfg.shared_repo_url, local)
     local.mkdir(parents=True, exist_ok=True)
-    repo = Repo.clone_from(cfg.shared_repo_url, local, branch=cfg.branch)
+
+    # Try cloning the target branch; if it doesn't exist yet, clone the
+    # default branch and create the target branch from there.
+    try:
+        repo = Repo.clone_from(cfg.shared_repo_url, local, branch=cfg.branch)
+    except GitCommandError:
+        log.info("Branch '%s' not found on remote, cloning default branch and creating it", cfg.branch)
+        repo = Repo.clone_from(cfg.shared_repo_url, local)
+        _ensure_branch(repo, cfg)
+
     return repo
+
+
+def _ensure_branch(repo: Repo, cfg: cfg_mod.Config) -> None:
+    """Switch to (and create if needed) the configured branch."""
+    try:
+        repo.git.checkout(cfg.branch)
+    except GitCommandError:
+        # Branch doesn't exist locally or remotely — create an orphan branch
+        # so it has no shared history with the code branches
+        log.info("Creating orphan branch '%s' for claude-sharing context", cfg.branch)
+        repo.git.checkout("--orphan", cfg.branch)
+        # Clear the index so we don't accidentally commit existing code files
+        repo.git.rm("-rf", "--cached", ".", "--ignore-unmatch")
+        log.info("Created orphan branch '%s'", cfg.branch)
 
 
 def pull(repo: Repo, cfg: cfg_mod.Config) -> list[str]:

@@ -127,7 +127,11 @@ if [[ -n "$REPO_URL" ]]; then
 else
     echo "Installed. Now run setup in your project directory:"
     echo ""
+    echo "  # New dedicated repo:"
     echo "  claude-share setup --repo git@github.com:your-org/shared-context.git --commit"
+    echo ""
+    echo "  # Or your existing team repo (uses an orphan 'claude-context' branch):"
+    echo "  claude-share setup --repo git@github.com:your-org/your-existing-repo.git --commit"
     echo ""
 fi
 echo "Logs: ~/.claude-sharing/daemon.log"
