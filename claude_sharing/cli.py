@@ -420,3 +420,7 @@ def _remove_sharing_hooks(hooks: dict) -> None:
             hooks[event] = cleaned_blocks
         else:
             del hooks[event]
+
+
+if __name__ == "__main__":
+    main()
