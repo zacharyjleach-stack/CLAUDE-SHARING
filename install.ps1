@@ -31,9 +31,21 @@ if (Test-Path (Join-Path $scriptDir "pyproject.toml")) {
 
 $binary = (Get-Command claude-share -ErrorAction SilentlyContinue).Source
 if (-not $binary) {
-    # pip scripts land in the user Scripts dir — add it to PATH for this session
-    $userScripts = "$env:APPDATA\Python\$(python -c 'import sys; print(f\"Python{sys.version_info.major}{sys.version_info.minor}\")')\Scripts"
-    $env:PATH = "$userScripts;$env:PATH"
+    # pip scripts may land in the Python install Scripts dir or the user Scripts dir
+    $pyTag = python -c 'import sys; print(f"Python{sys.version_info.major}{sys.version_info.minor}")'
+    $candidates = @(
+        # standard install (no --user): beside the python.exe
+        (python -c 'import sysconfig; print(sysconfig.get_path("scripts"))'),
+        # --user install: roaming appdata
+        "$env:APPDATA\Python\$pyTag\Scripts",
+        # --user install: local appdata (some pip versions)
+        "$env:LOCALAPPDATA\Programs\Python\$pyTag\Scripts"
+    )
+    foreach ($dir in $candidates) {
+        if ($dir -and (Test-Path $dir)) {
+            $env:PATH = "$dir;$env:PATH"
+        }
+    }
     $binary = (Get-Command claude-share -ErrorAction SilentlyContinue).Source
 }
 
