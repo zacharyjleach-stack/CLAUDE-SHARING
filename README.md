@@ -62,16 +62,45 @@ the background Electron process. Your Claude only touches this data when
 you actually ask a question that makes it call one of the tools above, and
 even then it only gets back the compact result of that one query.
 
-## Running it
+## Installing
+
+Both teammates just need to run one command. It clones the app to
+`~/.claude-sharing/app`, installs and builds it, puts a `claude-sharing`
+launcher on your PATH, and opens the app.
+
+**macOS / Linux:**
 
 ```bash
-npm install
-npm run build
-npm run dev:desktop   # launches the Electron app
+curl -fsSL https://raw.githubusercontent.com/zacharyjleach-stack/CLAUDE-SHARING/main/install.sh | bash
 ```
 
-Both teammates need this running locally (it's not published as a signed,
-installable build yet — see Limitations).
+**Windows (PowerShell):**
+
+```powershell
+irm https://raw.githubusercontent.com/zacharyjleach-stack/CLAUDE-SHARING/main/install.ps1 | iex
+```
+
+> **Before this branch is merged to `main`**, those URLs 404 — use the
+> branch-pinned versions instead (swap to the ones above once merged):
+>
+> ```bash
+> curl -fsSL https://raw.githubusercontent.com/zacharyjleach-stack/CLAUDE-SHARING/claude/whats-in-this-rgdhod/install.sh | CLAUDE_SHARING_REF=claude/whats-in-this-rgdhod bash
+> ```
+> ```powershell
+> $env:CLAUDE_SHARING_REF="claude/whats-in-this-rgdhod"; irm https://raw.githubusercontent.com/zacharyjleach-stack/CLAUDE-SHARING/claude/whats-in-this-rgdhod/install.ps1 | iex
+> ```
+
+Requires [Node.js](https://nodejs.org) 18+ and `git` already installed —
+everything else (Electron included) is pulled in automatically. Re-running
+the same command later updates to the latest version. After that, just run:
+
+```
+claude-sharing
+```
+
+This isn't a signed/notarized installable `.app`/`.exe` yet (see
+Limitations) — the one-liner runs it from source instead, which is why
+Node/git are prerequisites.
 
 ## Security notes
 
@@ -95,9 +124,11 @@ installable build yet — see Limitations).
   compiling and smoke-running the app headlessly, but a live two-person
   pairing session hasn't been run. Try it and report back if the handshake
   or activity feed misbehaves.
-- **No packaged installer** — currently `npm run dev:desktop` only. Adding
-  `electron-builder` packaging (signed `.dmg`/`.exe`) is straightforward
-  follow-up work once the core flow is confirmed working.
+- **No packaged installer.** `install.sh`/`install.ps1` give you a
+  one-command install, but they run the app from source (need Node/git
+  present) rather than installing a signed `.dmg`/`.exe`. Adding
+  `electron-builder` packaging is straightforward follow-up work once the
+  core flow is confirmed working.
 - **One connection at a time.** Hosting supports a single joiner; group
   pairing isn't implemented.
 - **Transcript-line parsing is best-effort.** Claude Code's `.jsonl` schema

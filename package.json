@@ -9,6 +9,7 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces",
-    "dev:desktop": "npm run dev --workspace apps/desktop"
+    "dev:desktop": "npm run dev --workspace apps/desktop",
+    "start": "npm run start --workspace apps/desktop"
   }
 }
