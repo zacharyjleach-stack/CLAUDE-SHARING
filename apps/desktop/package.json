@@ -1,0 +1,20 @@
+{
+  "name": "@claude-sharing/desktop",
+  "version": "0.2.0",
+  "description": "Pair two Claude Code teammates in real time.",
+  "main": "dist/main/index.js",
+  "scripts": {
+    "build": "tsc -p . && cp -r src/renderer/index.html src/renderer/styles.css dist/renderer/",
+    "dev": "npm run build && electron .",
+    "start": "electron ."
+  },
+  "dependencies": {
+    "peerjs": "^1.5.4",
+    "chokidar": "^3.6.0"
+  },
+  "devDependencies": {
+    "electron": "^31.3.1",
+    "typescript": "^5.5.4",
+    "@types/node": "^20.14.10"
+  }
+}
