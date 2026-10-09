@@ -58,7 +58,7 @@ jobs:
 
   release:
     needs: build
-    if: startsWith(github.ref, 'refs/tags/')
+    if: success()
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -67,10 +67,27 @@ jobs:
         with:
           path: artifacts
 
-      - name: Create GitHub release with the built installers
+      # A real "vX.Y.Z" tag push publishes under that tag. A manual
+      # workflow_dispatch run (no tag) publishes under a rolling
+      # "dev-build" tag instead, so there's always something at
+      # /releases/latest/download/<name> to test against between real
+      # version tags.
+      - name: Determine release tag
+        id: tag
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=dev-build" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create/update GitHub release with the built installers
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
         run: |
-          gh release create "${{ github.ref_name }}" artifacts/*/* \
-            --title "${{ github.ref_name }}" \
-            --generate-notes
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" artifacts/*/* --clobber
+          else
+            gh release create "$TAG" artifacts/*/* --title "$TAG" --generate-notes
+          fi
