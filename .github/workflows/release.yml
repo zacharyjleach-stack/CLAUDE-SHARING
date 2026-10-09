@@ -87,6 +87,10 @@ jobs:
       - name: Create/update GitHub release with the built installers
         env:
           GH_TOKEN: ${{ github.token }}
+          # This job has no checkout step (just downloads artifacts), so
+          # there's no .git directory for `gh` to infer the repo from —
+          # it needs to be told explicitly.
+          GH_REPO: ${{ github.repository }}
           TAG: ${{ steps.tag.outputs.tag }}
         run: |
           shopt -s nullglob
