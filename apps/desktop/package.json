@@ -1,0 +1,67 @@
+{
+  "name": "@claude-sharing/desktop",
+  "version": "0.2.0",
+  "description": "Pair two Claude Code teammates in real time.",
+  "author": "claude-sharing",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zacharyjleach-stack/CLAUDE-SHARING.git"
+  },
+  "main": "dist/main/index.js",
+  "scripts": {
+    "typecheck": "tsc -p . --noEmit",
+    "build": "npm run typecheck && node build.mjs",
+    "dev": "npm run build && electron .",
+    "start": "electron .",
+    "package": "npm run build && mkdir -p node_modules && electron-builder --publish=never"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "@types/ws": "^8.5.12",
+    "7zip-bin": "^5.2.0",
+    "chokidar": "^3.6.0",
+    "electron": "31.7.7",
+    "electron-builder": "^24.13.3",
+    "esbuild": "^0.28.2",
+    "peerjs": "^1.5.4",
+    "typescript": "^5.5.4",
+    "ws": "^8.18.0"
+  },
+  "build": {
+    "appId": "dev.claude-sharing.desktop",
+    "productName": "Claude Sharing",
+    "directories": {
+      "output": "release"
+    },
+    "files": ["dist/**/*", "package.json"],
+    "extraResources": [
+      {
+        "from": "../../packages/mcp-server/dist",
+        "to": "mcp-server/dist"
+      },
+      {
+        "from": "../../packages/mcp-server/package.json",
+        "to": "mcp-server/package.json"
+      },
+      {
+        "from": "../../extension",
+        "to": "extension"
+      }
+    ],
+    "executableName": "claude-sharing",
+    "linux": {
+      "target": ["AppImage"],
+      "category": "Development",
+      "artifactName": "ClaudeSharing.AppImage"
+    },
+    "mac": {
+      "target": ["dmg"],
+      "category": "public.app-category.developer-tools",
+      "artifactName": "ClaudeSharing.dmg"
+    },
+    "win": {
+      "target": ["nsis"],
+      "artifactName": "ClaudeSharingSetup.exe"
+    }
+  }
+}

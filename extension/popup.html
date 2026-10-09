@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body { font-family: sans-serif; width: 240px; padding: 12px; font-size: 13px; }
+      h1 { font-size: 14px; margin: 0 0 8px; }
+      #status { font-weight: 600; margin-bottom: 10px; }
+      .ok { color: #1e7e34; }
+      .bad { color: #c0392b; }
+      label { display: block; margin-top: 10px; color: #555; }
+      input { width: 100%; padding: 5px; margin-top: 4px; box-sizing: border-box; }
+      button { margin-top: 8px; width: 100%; padding: 6px; cursor: pointer; }
+    </style>
+  </head>
+  <body>
+    <h1>Claude Sharing</h1>
+    <div id="status">Checking…</div>
+
+    <label>
+      Repo override (owner/repo)
+      <input id="manual-repo" type="text" placeholder="auto-detected if blank" />
+    </label>
+    <button id="save">Save</button>
+    <p style="color:#888; margin-top:10px;">
+      Make sure the Claude Sharing desktop app is running — this connects to
+      it on your machine (127.0.0.1) only.
+    </p>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

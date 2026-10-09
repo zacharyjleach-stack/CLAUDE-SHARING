@@ -1,0 +1,107 @@
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  font-family: -apple-system, "Segoe UI", sans-serif;
+  color: #1c1c1e;
+  background: #fafafa;
+  overflow: hidden;
+}
+
+#titlebar {
+  -webkit-app-region: drag;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+  background: #1c1c1e;
+  color: white;
+  font-size: 13px;
+}
+.titlebar-title { font-weight: 600; }
+.titlebar-controls { -webkit-app-region: no-drag; display: flex; gap: 2px; }
+.titlebar-controls button {
+  background: transparent;
+  border: none;
+  color: white;
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.titlebar-controls button:hover { background: rgba(255, 255, 255, 0.15); }
+.titlebar-controls button.close:hover { background: #e5484d; }
+
+main {
+  padding: 12px 16px;
+  overflow-y: auto;
+  height: calc(100% - 36px);
+}
+
+h1 { margin-bottom: 0; }
+h2 { margin: 0 0 4px; font-size: 15px; }
+.sub { color: #666; margin-top: 4px; font-size: 13px; }
+
+.card {
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 12px;
+  margin: 10px 0;
+  background: white;
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+label { display: block; font-size: 12px; color: #555; margin-top: 8px; }
+input {
+  width: 100%;
+  padding: 7px;
+  margin-top: 4px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+button {
+  margin-top: 8px;
+  padding: 7px 12px;
+  border-radius: 6px;
+  border: none;
+  background: #d97757;
+  color: white;
+  cursor: pointer;
+  font-size: 13px;
+}
+button:hover { opacity: 0.9; }
+
+.row { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+.muted { color: #888; font-size: 12px; }
+.status { font-weight: 600; font-size: 13px; }
+
+.banner {
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.banner-match { background: #e6f4ea; color: #1e7e34; }
+.banner-mismatch { background: #f1f1f1; color: #666; }
+
+#activity-feed {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 220px;
+  overflow-y: auto;
+  font-size: 12px;
+}
+#activity-feed li {
+  padding: 5px 0;
+  border-bottom: 1px solid #eee;
+}
