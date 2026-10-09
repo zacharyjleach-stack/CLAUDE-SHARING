@@ -5,7 +5,8 @@ import { PeerMessage } from "../shared/protocol";
 const $ = (id: string) => document.getElementById(id) as HTMLElement;
 
 const session = new Session();
-let projectDir: string | null = null;
+let myRepo: string | null = null;
+let peerRepo: string | null = null;
 
 function logFeed(text: string): void {
   const li = document.createElement("li");
@@ -19,20 +20,54 @@ function setStatusText(text: string): void {
   $("status-text").textContent = text;
 }
 
+function updateRepoBanner(): void {
+  const banner = $("repo-banner");
+  if (!myRepo || !peerRepo) {
+    banner.hidden = true;
+    return;
+  }
+  banner.hidden = false;
+  if (myRepo === peerRepo) {
+    banner.textContent = `Same repo (${myRepo}) — live awareness is on.`;
+    banner.className = "banner banner-match";
+  } else {
+    banner.textContent = `Different repos (you: ${myRepo}, them: ${peerRepo}).`;
+    banner.className = "banner banner-mismatch";
+  }
+}
+
 // ---------------------------------------------------------------------------
-// Project selection
+// Window chrome (frameless widget)
+// ---------------------------------------------------------------------------
+
+document.querySelectorAll<HTMLElement>("[data-window-action]").forEach((el) => {
+  el.addEventListener("click", () => {
+    ipcRenderer.send("window-control", el.dataset.windowAction);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Project selection (local Claude Code CLI path)
 // ---------------------------------------------------------------------------
 
 $("project-dir-btn").addEventListener("click", async () => {
   const result = await ipcRenderer.invoke("select-project-dir");
   if (result) {
-    projectDir = result.projectDir;
-    $("project-dir-label").textContent = projectDir;
-    logFeed(`Watching ${projectDir} for Claude Code activity.`);
+    $("project-dir-label").textContent = result.projectDir;
+    logFeed(`Watching ${result.projectDir} for Claude Code activity.`);
   }
 });
 
-// Forward this machine's new transcript lines to the connected teammate.
+// This machine's current repo, reported by either the CLI folder picker or
+// the browser extension (whichever last reported one).
+ipcRenderer.on("local-repo", (_evt, repo: string | null) => {
+  myRepo = repo;
+  updateRepoBanner();
+  if (session.status === "connected") session.sendPresence(myRepo);
+});
+
+// Forward newly-detected local activity (CLI transcript lines, or extension
+// events relayed through main) to the connected teammate.
 ipcRenderer.on("outgoing-line", (_evt, { raw, event }) => {
   if (session.status !== "connected") return;
   session.send({ type: "transcript", ts: new Date().toISOString(), raw });
@@ -93,8 +128,9 @@ session.on("status", (status: string) => {
 
 session.on("connected", (peerName: string) => {
   ipcRenderer.send("peer-connected", peerName);
-  logFeed(`Connected to ${peerName}. Their Claude Code activity will appear here in real time.`);
+  logFeed(`Connected to ${peerName}. Their Claude activity will appear here in real time.`);
   $("mcp-hint").hidden = false;
+  session.sendPresence(myRepo);
 });
 
 session.on("error", (reason: string) => {
@@ -106,4 +142,10 @@ session.on("peer-data", (peerName: string, data: PeerMessage) => {
   if (data.type === "activity") {
     logFeed(`(${peerName}) ${data.event.summary}`);
   }
+});
+
+session.on("peer-presence", (_peerName: string, repo: string | null) => {
+  peerRepo = repo;
+  ipcRenderer.send("peer-repo", repo);
+  updateRepoBanner();
 });

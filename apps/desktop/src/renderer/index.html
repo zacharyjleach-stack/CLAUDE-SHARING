@@ -6,52 +6,68 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <h1>Claude Sharing</h1>
-    <p class="sub">Pair with a teammate so your Claude Code sessions know what each other is doing.</p>
-
-    <section class="card">
-      <label>Your name</label>
-      <input id="your-name" type="text" placeholder="e.g. Zach" />
-
-      <label>Project to watch &amp; share</label>
-      <div class="row">
-        <button id="project-dir-btn">Choose folder…</button>
-        <span id="project-dir-label" class="muted">none selected</span>
+    <header id="titlebar">
+      <span class="titlebar-title">Claude Sharing</span>
+      <div class="titlebar-controls">
+        <button data-window-action="compact" title="Compact">▢</button>
+        <button data-window-action="half-left" title="Snap left">◫</button>
+        <button data-window-action="half-right" title="Snap right">◧</button>
+        <button data-window-action="normal" title="Normal size">⬜</button>
+        <button data-window-action="toggle-always-on-top" title="Always on top">📌</button>
+        <button data-window-action="minimize" title="Minimize">—</button>
+        <button data-window-action="close" title="Close" class="close">✕</button>
       </div>
-    </section>
+    </header>
 
-    <div class="columns">
-      <section class="card">
-        <h2>Host a session</h2>
-        <label>Set a password</label>
-        <input id="host-password" type="password" placeholder="shared secret" />
-        <button id="host-btn">Host</button>
-        <p>Session code: <strong id="host-code-display" hidden></strong></p>
-        <p class="muted">Share the code and password with your teammate (out of band, e.g. Slack).</p>
-      </section>
+    <main>
+      <p class="sub">Pair with a teammate so your Claude knows what each other is doing.</p>
+
+      <p id="repo-banner" class="banner" hidden></p>
 
       <section class="card">
-        <h2>Join a session</h2>
-        <label>Session code</label>
-        <input id="join-code" type="text" placeholder="e.g. K3F8Q1" />
-        <label>Password</label>
-        <input id="join-password" type="password" placeholder="shared secret" />
-        <button id="join-btn">Join</button>
+        <label>Your name</label>
+        <input id="your-name" type="text" placeholder="e.g. Zach" />
+
+        <label>Project to watch &amp; share (optional — the browser extension works without this)</label>
+        <div class="row">
+          <button id="project-dir-btn">Choose folder…</button>
+          <span id="project-dir-label" class="muted">none selected</span>
+        </div>
       </section>
-    </div>
 
-    <p id="status-text" class="status">Not connected.</p>
+      <div class="columns">
+        <section class="card">
+          <h2>Host</h2>
+          <label>Set a password</label>
+          <input id="host-password" type="password" placeholder="shared secret" />
+          <button id="host-btn">Host</button>
+          <p>Code: <strong id="host-code-display" hidden></strong></p>
+          <p class="muted">Share the code + password out of band (e.g. Slack).</p>
+        </section>
 
-    <p id="mcp-hint" class="muted" hidden>
-      In your terminal Claude Code session for this project, try asking:
-      <em>"what has &lt;teammate&gt; just added?"</em> — it'll use the
-      claude-sharing MCP tools registered in <code>.mcp.json</code>.
-    </p>
+        <section class="card">
+          <h2>Join</h2>
+          <label>Session code</label>
+          <input id="join-code" type="text" placeholder="e.g. K3F8Q1" />
+          <label>Password</label>
+          <input id="join-password" type="password" placeholder="shared secret" />
+          <button id="join-btn">Join</button>
+        </section>
+      </div>
 
-    <section class="card">
-      <h2>Activity</h2>
-      <ul id="activity-feed"></ul>
-    </section>
+      <p id="status-text" class="status">Not connected.</p>
+
+      <p id="mcp-hint" class="muted" hidden>
+        Install the companion browser extension (see README) to watch
+        claude.ai/code directly, or ask your Claude Code CLI
+        <em>"what has &lt;teammate&gt; just added?"</em>.
+      </p>
+
+      <section class="card">
+        <h2>Activity</h2>
+        <ul id="activity-feed"></ul>
+      </section>
+    </main>
 
     <script src="renderer.js"></script>
   </body>

@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Claude Sharing",
+  "version": "0.1.0",
+  "description": "Mirrors your claude.ai/code activity to the Claude Sharing desktop app so a paired teammate's Claude can stay live-aware of what you're doing.",
+  "permissions": ["storage", "alarms"],
+  "host_permissions": ["https://claude.ai/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://claude.ai/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Claude Sharing"
+  }
+}

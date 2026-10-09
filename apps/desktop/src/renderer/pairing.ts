@@ -118,7 +118,13 @@ export class Session extends EventEmitter {
   private handleAppMessage(data: PeerMessage): void {
     if (data.type === "activity" || data.type === "transcript") {
       this.emit("peer-data", this.peerName, data);
+    } else if (data.type === "presence") {
+      this.emit("peer-presence", this.peerName, data.repo);
     }
+  }
+
+  sendPresence(repo: string | null): void {
+    this.send({ type: "presence", repo });
   }
 
   private fail(reason: string): void {

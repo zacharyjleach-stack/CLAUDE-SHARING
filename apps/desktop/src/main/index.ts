@@ -6,7 +6,11 @@ function createWindow(): void {
   const win = new BrowserWindow({
     width: 900,
     height: 640,
+    minWidth: 300,
+    minHeight: 200,
     title: "Claude Sharing",
+    frame: false,
+    resizable: true,
     webPreferences: {
       // Trusted local app, no remote content is ever loaded — nodeIntegration
       // is enabled so the renderer can drive WebRTC (peerjs) and talk to the
