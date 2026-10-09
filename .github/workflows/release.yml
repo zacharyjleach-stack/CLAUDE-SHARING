@@ -58,7 +58,10 @@ jobs:
 
   release:
     needs: build
-    if: success()
+    # Publish whatever installers did build even if one OS's leg failed
+    # (fail-fast: false keeps the others running, but a `needs:` dependency
+    # still counts the job as failed overall unless told otherwise here).
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -86,8 +89,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.tag.outputs.tag }}
         run: |
+          shopt -s nullglob
+          files=(artifacts/*/*)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::No installers were produced by any OS — every matrix leg must have failed. Nothing to release."
+            exit 1
+          fi
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" artifacts/*/* --clobber
+            gh release upload "$TAG" "${files[@]}" --clobber
           else
-            gh release create "$TAG" artifacts/*/* --title "$TAG" --generate-notes
+            gh release create "$TAG" "${files[@]}" --title "$TAG" --generate-notes
           fi
