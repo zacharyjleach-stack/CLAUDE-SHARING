@@ -126,12 +126,31 @@ that one query.
 
 Every push of a `vX.Y.Z` tag runs `.github/workflows/release.yml`, which
 builds a real installer on each OS's own runner and attaches them to a
-GitHub Release: a `.AppImage` (Linux), `.dmg` (macOS), and `.exe` (Windows,
-NSIS). Grab yours from the repo's **Releases** page and run it — no Node,
-no git, no terminal. These are **unsigned** (no Apple notarization or
-Windows code-signing cert), so macOS Gatekeeper / Windows SmartScreen will
-warn on first launch; you'll need to click through ("Open anyway" /
-"Run anyway").
+GitHub Release under **fixed filenames** (`ClaudeSharingSetup.exe`,
+`ClaudeSharing.dmg`, `ClaudeSharing.AppImage`), so a "latest release" link
+never needs updating when the version bumps.
+
+**Windows, from `cmd.exe`** — no browser needed, just paste this and hit
+enter (uses `curl.exe`, built into Windows 10 1803+ / Windows 11):
+
+```bat
+curl -L -o "%TEMP%\ClaudeSharingSetup.exe" https://github.com/zacharyjleach-stack/CLAUDE-SHARING/releases/latest/download/ClaudeSharingSetup.exe && "%TEMP%\ClaudeSharingSetup.exe"
+```
+
+That downloads the latest installer to your temp folder and launches it
+immediately. Or just click through from the repo's **Releases** page —
+grab the `.AppImage` (Linux), `.dmg` (macOS), or `.exe` (Windows) and run
+it. No Node, no git, no terminal required either way.
+
+These are **unsigned** (no Apple notarization or Windows code-signing
+cert), so macOS Gatekeeper / Windows SmartScreen will warn on first
+launch — click through ("More info → Run anyway" on Windows, "Open
+anyway" on macOS).
+
+⚠️ **This only works once a `vX.Y.Z` tag has actually been pushed** —
+that's what triggers the build. None has been pushed yet as of this
+branch, so the link above will 404 until someone (with push access) tags
+a release. Say so if you'd like that done.
 
 Only the Linux `.AppImage` has actually been run and verified (see
 Limitations) — the `.dmg`/`.exe` build in CI the same way but haven't been

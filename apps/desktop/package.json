@@ -50,21 +50,18 @@
     ],
     "executableName": "claude-sharing",
     "linux": {
-      "target": [
-        "AppImage"
-      ],
-      "category": "Development"
+      "target": ["AppImage"],
+      "category": "Development",
+      "artifactName": "ClaudeSharing.AppImage"
     },
     "mac": {
-      "target": [
-        "dmg"
-      ],
-      "category": "public.app-category.developer-tools"
+      "target": ["dmg"],
+      "category": "public.app-category.developer-tools",
+      "artifactName": "ClaudeSharing.dmg"
     },
     "win": {
-      "target": [
-        "nsis"
-      ]
+      "target": ["nsis"],
+      "artifactName": "ClaudeSharingSetup.exe"
     }
   }
 }
