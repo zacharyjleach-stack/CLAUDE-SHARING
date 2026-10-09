@@ -122,17 +122,26 @@ that one query.
 
 ## Installing
 
-Both teammates just need to run one command. It clones the app to
-`~/.claude-sharing/app`, installs and builds it, puts a `claude-sharing`
-launcher on your PATH, and opens the app.
+### Option A: real installer (no Node/git needed)
 
-**macOS / Linux:**
+Every push of a `vX.Y.Z` tag runs `.github/workflows/release.yml`, which
+builds a real installer on each OS's own runner and attaches them to a
+GitHub Release: a `.AppImage` (Linux), `.dmg` (macOS), and `.exe` (Windows,
+NSIS). Grab yours from the repo's **Releases** page and run it — no Node,
+no git, no terminal. These are **unsigned** (no Apple notarization or
+Windows code-signing cert), so macOS Gatekeeper / Windows SmartScreen will
+warn on first launch; you'll need to click through ("Open anyway" /
+"Run anyway").
+
+Only the Linux `.AppImage` has actually been run and verified (see
+Limitations) — the `.dmg`/`.exe` build in CI the same way but haven't been
+launched on a real Mac/Windows machine yet.
+
+### Option B: one-line script (runs from source, needs Node + git)
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/zacharyjleach-stack/CLAUDE-SHARING/main/install.sh | bash
 ```
-
-**Windows (PowerShell):**
 
 ```powershell
 irm https://raw.githubusercontent.com/zacharyjleach-stack/CLAUDE-SHARING/main/install.ps1 | iex
@@ -148,24 +157,48 @@ irm https://raw.githubusercontent.com/zacharyjleach-stack/CLAUDE-SHARING/main/in
 > $env:CLAUDE_SHARING_REF="claude/whats-in-this-rgdhod"; irm https://raw.githubusercontent.com/zacharyjleach-stack/CLAUDE-SHARING/claude/whats-in-this-rgdhod/install.ps1 | iex
 > ```
 
-Requires [Node.js](https://nodejs.org) 18+ and `git` already installed —
-everything else (Electron included) is pulled in automatically. Re-running
-the same command later updates to the latest version. After that, just run:
+Clones to `~/.claude-sharing/app`, builds, puts a `claude-sharing` launcher
+on PATH, and opens the app. Re-run the same command later to update. After
+that, just run `claude-sharing`.
 
-```
-claude-sharing
-```
+### Loading the browser extension
 
-This isn't a signed/notarized installable `.app`/`.exe` yet (see
-Limitations) — the one-liner runs it from source instead, which is why
-Node/git are prerequisites.
-
-**To also watch claude.ai/code in the browser**, load the extension once:
+Chrome needs a plain folder on disk for "Load unpacked" — the easiest
+source for that regardless of which option above you used is the repo
+itself: either `git clone` it, or use GitHub's **Code → Download ZIP** and
+unzip it (no git needed for that route).
 
 1. Chrome → `chrome://extensions` → enable **Developer mode** (top right).
-2. **Load unpacked** → select `~/.claude-sharing/app/extension`.
+2. **Load unpacked** → select that checkout/unzip's `extension/` folder.
 3. Open a `claude.ai/code` tab — the extension's popup should show
    "Connected to desktop app" once the desktop app is running.
+
+(If you used Option A, the installer also carries its own copy inside
+`resources/extension` next to wherever it installed, for reference — but
+downloading the repo folder is the simplest way to actually point Chrome
+at it.)
+
+## Building installers yourself
+
+```bash
+npm install
+npm run build
+cd apps/desktop
+npx electron-builder --publish=never   # or --linux / --mac / --win
+```
+
+`apps/desktop/src/main/index.ts` and `renderer.ts` get bundled by esbuild
+(`apps/desktop/build.mjs`) into single self-contained files with no
+`node_modules` needed at runtime — same for the MCP server
+(`packages/mcp-server/build.mjs`). That's deliberate: electron-builder's
+automatic "install production dependencies" step doesn't play well with
+npm workspaces' hoisted `node_modules` (it can end up pruning
+devDependencies — including itself — from the shared root tree). Bundling
+sidesteps the problem entirely rather than fighting it; the one remaining
+workaround needed is creating an empty `apps/desktop/node_modules`
+directory before running electron-builder (already in the `package` npm
+script and the CI workflow) so it takes the no-op "rebuild" path instead
+of the destructive "install" one.
 
 ## Security notes
 
@@ -191,19 +224,23 @@ Node/git are prerequisites.
 - **Not tested end-to-end with two real machines** in this environment (no
   GUI/two-peer test harness, and no live claude.ai session, available
   here). What *is* verified: both workspaces + the extension's manifest
-  compile/load correctly, the Electron app starts headlessly without
-  error, and a real WebSocket client can connect to its local bridge on
-  `127.0.0.1:8347` and round-trip a message. The WebRTC pairing handshake
-  and the extension's DOM heuristics on a live claude.ai page have not
-  been exercised end-to-end — try them and report back.
+  build/load correctly; the real, packaged Linux `.AppImage` (not just
+  `electron .` from source) launches headlessly without error and its
+  local WebSocket bridge on `127.0.0.1:8347` round-trips a real message
+  from an external client. The WebRTC pairing handshake and the
+  extension's DOM heuristics on a live claude.ai page have not been
+  exercised end-to-end — try them and report back.
 - **Extension selectors are best-effort**, per the section above — likely
   the single biggest thing to iterate on once tried against the real page.
-- **No packaged installer.** `install.sh`/`install.ps1` give you a
-  one-command install, but they run the app from source (need Node/git
-  present) rather than installing a signed `.dmg`/`.exe`, and the extension
-  still needs manually loading as "unpacked" (Chrome Web Store review is a
-  separate, slower path). Adding `electron-builder` packaging is
-  straightforward follow-up work once the core flow is confirmed working.
+- **Installers are unsigned.** No Apple notarization or Windows
+  code-signing certificate, so Gatekeeper/SmartScreen will warn on first
+  run (see Installing). Getting a cert and wiring up signing in CI is
+  follow-up work.
+- **Only the Linux `.AppImage` has actually been launched and verified**
+  (see the bullet above) — the `.dmg`/`.exe` build successfully in CI but
+  haven't been run on a real Mac/Windows machine.
+- **The browser extension still needs manually loading as "unpacked"** —
+  Chrome Web Store review is a separate, slower path not done here.
 - **One connection at a time.** Hosting supports a single joiner; group
   pairing ("party" with 3+) isn't implemented.
 - **Repo matching only recognizes GitHub remotes** (`repo.ts`), normalized
@@ -212,7 +249,3 @@ Node/git are prerequisites.
 - **Transcript-line parsing is best-effort.** Claude Code's `.jsonl` schema
   isn't a stable public API, so `deriveActivityEvent` falls back gracefully
   on shapes it doesn't recognize, but summaries may occasionally be generic.
-- The `mcpServerEntryPath()` resolution in `apps/desktop/src/shared/paths.ts`
-  assumes running from this source tree (`dist/main/... -> packages/mcp-server/dist`).
-  Packaging as a standalone app will need that path bundled in
-  differently (e.g. via `extraResources`).

@@ -9,6 +9,14 @@ import { ExtensionMessage, PeerMessage } from "../shared/protocol";
 
 let watcher: TranscriptWatcher | null = null;
 const bridge = new ExtensionBridge();
+// Must attach before anything else runs: the bridge binds its port
+// synchronously at construction time (module load, before app.whenReady()
+// resolves), and an unhandled "error" event on an EventEmitter crashes the
+// whole process — most likely cause here is EADDRINUSE from a second
+// instance of the app already running.
+bridge.on("error", (err: Error) => {
+  console.error("Extension bridge failed to start:", err.message);
+});
 
 // This machine's current repo, from whichever source last reported one
 // (the CLI project-folder picker, or the browser extension watching a

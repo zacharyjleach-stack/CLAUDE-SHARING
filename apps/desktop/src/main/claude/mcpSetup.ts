@@ -1,6 +1,20 @@
+import { app } from "electron";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { mcpServerEntryPath } from "../../shared/paths";
+
+/**
+ * Where the mcp-server's compiled entry point lives. In dev, that's the
+ * sibling workspace in this source tree; in a packaged app, electron-builder
+ * copies it into resources/mcp-server (see apps/desktop/package.json's
+ * "build.extraResources") since the source tree won't exist on the
+ * installed machine.
+ */
+function mcpServerEntryPath(): string {
+  if (app.isPackaged) {
+    return join(process.resourcesPath, "mcp-server", "dist", "index.js");
+  }
+  return join(__dirname, "..", "..", "..", "..", "..", "packages", "mcp-server", "dist", "index.js");
+}
 
 /**
  * Registers the claude-sharing MCP server in the project's .mcp.json so

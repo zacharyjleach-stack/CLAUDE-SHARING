@@ -1,0 +1,76 @@
+name: Build desktop installers
+
+# Builds real, no-prerequisite installers (.AppImage / .dmg / .exe) on each
+# OS's own runner — electron-builder can't cross-compile native installers,
+# so this always needed three machines, not just one. Only the Linux target
+# is verified by hand (see README); mac/win are built here but not smoke
+# tested the way the Linux AppImage was.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            flag: --linux
+          - os: macos-latest
+            flag: --mac
+          - os: windows-latest
+            flag: --win
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm install
+
+      - run: npm run build
+
+      # electron-builder's dependency-install step fights npm workspaces'
+      # hoisted node_modules (it can't find apps/desktop/node_modules and
+      # tries to "fix" that by reinstalling production deps at the
+      # workspace root, pruning the devDependencies it needs itself).
+      # An empty node_modules here is enough to make it skip that step.
+      - name: Package (${{ matrix.os }})
+        shell: bash
+        working-directory: apps/desktop
+        run: |
+          mkdir -p node_modules
+          npx electron-builder ${{ matrix.flag }} --publish=never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: claude-sharing-${{ matrix.os }}
+          path: |
+            apps/desktop/release/*.AppImage
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.exe
+          if-no-files-found: ignore
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub release with the built installers
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" artifacts/*/* \
+            --title "${{ github.ref_name }}" \
+            --generate-notes

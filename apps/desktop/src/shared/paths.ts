@@ -18,8 +18,3 @@ export const CLAUDE_PROJECTS_DIR = join(homedir(), ".claude", "projects");
 export function sanitizeProjectPath(absPath: string): string {
   return absPath.replace(/[\\/]/g, "-");
 }
-
-export function mcpServerEntryPath(): string {
-  // apps/desktop/dist/main/../../.. -> repo root, then packages/mcp-server/dist/index.js
-  return join(__dirname, "..", "..", "..", "..", "packages", "mcp-server", "dist", "index.js");
-}
