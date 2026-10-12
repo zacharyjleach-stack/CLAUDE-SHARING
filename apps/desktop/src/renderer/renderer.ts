@@ -7,6 +7,8 @@ const $ = (id: string) => document.getElementById(id) as HTMLElement;
 const session = new Session();
 let myRepo: string | null = null;
 let peerRepo: string | null = null;
+let connectedAt = 0;
+let timerHandle: number | undefined;
 
 function logFeed(text: string): void {
   const li = document.createElement("li");
@@ -18,6 +20,15 @@ function logFeed(text: string): void {
 
 function setStatusText(text: string): void {
   $("status-text").textContent = text;
+}
+
+function notify(title: string, body: string): void {
+  try {
+    // eslint-disable-next-line no-new
+    new Notification(title, { body });
+  } catch {
+    // notifications unavailable/denied on this platform — degrade silently
+  }
 }
 
 function updateRepoBanner(): void {
@@ -34,6 +45,47 @@ function updateRepoBanner(): void {
     banner.textContent = `Different repos (you: ${myRepo}, them: ${peerRepo}).`;
     banner.className = "banner banner-mismatch";
   }
+}
+
+// ---------------------------------------------------------------------------
+// Lobby <-> call view switching
+// ---------------------------------------------------------------------------
+
+function formatElapsed(ms: number): string {
+  const secs = Math.floor(ms / 1000);
+  const mm = String(Math.floor(secs / 60)).padStart(2, "0");
+  const ss = String(secs % 60).padStart(2, "0");
+  return `Connected · ${mm}:${ss}`;
+}
+
+function tickTimer(): void {
+  $("call-timer").textContent = formatElapsed(Date.now() - connectedAt);
+}
+
+function showCallView(peerName: string): void {
+  $("lobby-view").hidden = true;
+  $("call-view").hidden = false;
+
+  $("peer-avatar").textContent = (peerName || "?").trim().charAt(0).toUpperCase() || "?";
+  $("call-peer-name").textContent = peerName;
+
+  connectedAt = Date.now();
+  tickTimer();
+  if (timerHandle) window.clearInterval(timerHandle);
+  timerHandle = window.setInterval(tickTimer, 1000);
+}
+
+function showLobbyView(): void {
+  $("call-view").hidden = true;
+  $("lobby-view").hidden = false;
+
+  if (timerHandle) {
+    window.clearInterval(timerHandle);
+    timerHandle = undefined;
+  }
+  $("host-code-display").hidden = true;
+  peerRepo = null;
+  updateRepoBanner();
 }
 
 // ---------------------------------------------------------------------------
@@ -111,6 +163,16 @@ $("join-btn").addEventListener("click", () => {
 });
 
 // ---------------------------------------------------------------------------
+// End Connection
+// ---------------------------------------------------------------------------
+
+$("end-call-btn").addEventListener("click", () => {
+  session.close();
+  setStatusText("Not connected.");
+  showLobbyView();
+});
+
+// ---------------------------------------------------------------------------
 // Session events
 // ---------------------------------------------------------------------------
 
@@ -129,18 +191,30 @@ session.on("status", (status: string) => {
 session.on("connected", (peerName: string) => {
   ipcRenderer.send("peer-connected", peerName);
   logFeed(`Connected to ${peerName}. Their Claude activity will appear here in real time.`);
-  $("mcp-hint").hidden = false;
   session.sendPresence(myRepo);
+  showCallView(peerName);
+  notify(`Connected to ${peerName}`, "Claude activity will sync live from here.");
+});
+
+session.on("peer-disconnected", (peerName: string | null) => {
+  const name = peerName ?? "Your teammate";
+  logFeed(`${name} disconnected.`);
+  notify(`${name} disconnected`, "The connection ended.");
+  showLobbyView();
 });
 
 session.on("error", (reason: string) => {
   logFeed(`Error: ${reason}`);
+  setStatusText(reason);
 });
 
 session.on("peer-data", (peerName: string, data: PeerMessage) => {
   ipcRenderer.send("peer-data", peerName, data);
   if (data.type === "activity") {
     logFeed(`(${peerName}) ${data.event.summary}`);
+    if (!document.hasFocus()) {
+      notify(peerName, data.event.summary);
+    }
   }
 });
 

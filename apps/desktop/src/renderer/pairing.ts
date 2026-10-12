@@ -24,6 +24,7 @@ export class Session extends EventEmitter {
   private conn: any = null;
   private sharedKey: Buffer | null = null;
   private myName = "";
+  private closingManually = false;
   status: SessionStatus = "idle";
   peerName: string | null = null;
 
@@ -109,10 +110,21 @@ export class Session extends EventEmitter {
   }
 
   private becomeConnected(): void {
+    this.closingManually = false;
     this.setStatus("connected");
     this.emit("connected", this.peerName);
     this.conn.removeAllListeners("data");
     this.conn.on("data", (data: PeerMessage) => this.handleAppMessage(data));
+    // Without this, a teammate quitting their app (rather than us ending the
+    // connection ourselves) would leave this side stuck showing "connected"
+    // forever — nothing else ever told it the link dropped.
+    this.conn.on("close", () => {
+      if (this.closingManually) return;
+      const name = this.peerName;
+      this.peerName = null;
+      this.setStatus("idle");
+      this.emit("peer-disconnected", name);
+    });
   }
 
   private handleAppMessage(data: PeerMessage): void {
@@ -138,8 +150,10 @@ export class Session extends EventEmitter {
   }
 
   close(): void {
+    this.closingManually = true;
     this.conn?.close();
     this.peer?.destroy();
+    this.peerName = null;
     this.setStatus("idle");
   }
 }
